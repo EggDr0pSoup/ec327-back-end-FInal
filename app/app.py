@@ -1,4 +1,3 @@
-import shutil
 import os
 from typing import List, Optional
 from dotenv import load_dotenv
@@ -7,15 +6,15 @@ from fastapi import Depends, FastAPI, HTTPException
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.crawler import get_all_course_data
+from app.crawler import get_all_course_data, send_email_test
 from app.db import Course, User, create_db_and_tables, get_async_session
 from app.schemas import UserCreate, UserRead, UserUpdate, CourseRead
 from app.users import auth_backend, current_active_user, fastapi_users
 from fastapi.middleware.cors import CORSMiddleware
 
 from fastapi_pagination import Page, add_pagination, paginate
-from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi_pagination.utils import disable_installed_extensions_check
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 disable_installed_extensions_check()
 load_dotenv()
@@ -179,7 +178,11 @@ async def get_current_user_courses_available(current_user: User = Depends(curren
 async def on_startup():
     await create_db_and_tables()
     if os.getenv('USE_CRAWLER', '0') == '1':
-        scheduler = BackgroundScheduler()
+        scheduler = AsyncIOScheduler()
         scheduler.add_job(get_all_course_data, 'cron',
                           second='*/600')  # every 10 minutes
         scheduler.start()
+    # scheduler = AsyncIOScheduler()
+    # scheduler.add_job(send_email_test, 'cron',
+    #                   second='*/5')  # every 5 seconds
+    # scheduler.start()

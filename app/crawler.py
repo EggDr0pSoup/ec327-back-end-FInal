@@ -3,8 +3,40 @@ import re
 import random
 from bs4 import BeautifulSoup
 from sqlalchemy import select
-from app.mail import EmailSchema, send_email
+from app.mail import EmailSchema, send_email_async
 from app.db import Course, async_session_maker
+
+
+async def send_email_test():
+    async with async_session_maker() as session:
+        course_id = random.randint(1, 5)
+        course_query = await session.execute(
+            select(Course).where(Course.id == course_id)
+        )
+        course = course_query.scalars().first()
+        if course:
+            course.available = 1
+            await session.commit()
+            print(f'Course {course.code} {course.section} is available now!')
+            for user in course.users:
+                email: EmailSchema = EmailSchema(
+                    email=user.email,
+                    subject='Course Available',
+                    body=f'The course {course.code} {course.section} is available now!'
+                )
+                await send_email_async(email)
+
+
+async def set_first_5_courses_unavailable():
+    async with async_session_maker() as session:
+        for course_id in range(1, 6):
+            course_query = await session.execute(
+                select(Course).where(Course.id == course_id)
+            )
+            course = course_query.scalars().first()
+            if course:
+                course.available = 0
+                await session.commit()
 
 
 async def insert_course_data(course_data):
@@ -29,7 +61,7 @@ async def insert_course_data(course_data):
                             subject='Course Available',
                             body=f'The course {course["code"]} {course["section"]} is available now!'
                         )
-                        send_email(email)
+                        await send_email_async(email)
         await session.commit()
 
 
